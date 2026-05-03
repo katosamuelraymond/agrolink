@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../services/session_service.dart';
-import '../../services/produce_service.dart';
 import '../../models/produce_model.dart';
 import '../../widgets/produce_card.dart';
-import '../../routes/app_routes.dart';
 
 class MyProduceScreen extends StatefulWidget {
   const MyProduceScreen({super.key});
@@ -13,25 +12,7 @@ class MyProduceScreen extends StatefulWidget {
 }
 
 class _MyProduceScreenState extends State<MyProduceScreen> {
-  final _produceService = ProduceService();
   final _sessionService = SessionService();
-  List<ProduceModel> _produceList = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProduce();
-  }
-
-  void _loadProduce() {
-    final userId = _sessionService.currentUserId;
-    if (userId != null) {
-      setState(() {
-        _produceList = _produceService.getProduceByFarmer(userId)
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,22 +20,25 @@ class _MyProduceScreenState extends State<MyProduceScreen> {
       appBar: AppBar(
         title: const Text('My Produce'),
       ),
-      body: _produceList.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-              onRefresh: () async => _loadProduce(),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16.0),
-                itemCount: _produceList.length,
-                itemBuilder: (context, index) {
-                  return ProduceCard(produce: _produceList[index]);
-                },
-              ),
-            ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.pushNamed(context, AppRoutes.addProduce).then((_) => _loadProduce()),
-        tooltip: 'Add Produce',
-        child: const Icon(Icons.add),
+      body: ValueListenableBuilder<Box<ProduceModel>>(
+        valueListenable: Hive.box<ProduceModel>('produce').listenable(),
+        builder: (context, box, _) {
+          final userId = _sessionService.currentUserId;
+          final produceList = box.values.where((p) => p.farmerId == userId).toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          if (produceList.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16.0),
+            itemCount: produceList.length,
+            itemBuilder: (context, index) {
+              return ProduceCard(produce: produceList[index]);
+            },
+          );
+        },
       ),
     );
   }

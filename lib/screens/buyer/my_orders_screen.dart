@@ -5,6 +5,7 @@ import '../../services/produce_service.dart';
 import '../../models/order_model.dart';
 import '../../widgets/order_card.dart';
 import '../../routes/app_routes.dart';
+import '../../services/payment_service.dart';
 
 class MyOrdersScreen extends StatefulWidget {
   const MyOrdersScreen({super.key});
@@ -17,6 +18,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   final _orderService = OrderService();
   final _sessionService = SessionService();
   final _produceService = ProduceService();
+  final _paymentService = PaymentService();
 
   List<OrderModel> _myOrders = [];
 
@@ -49,11 +51,13 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               itemBuilder: (context, index) {
                 final order = _myOrders[index];
                 final produce = _produceService.getProduceById(order.produceId);
+                final payments = _paymentService.getPaymentsForOrder(order.id);
+                final isPaid = payments.any((p) => p.status == 'completed');
                 
                 return OrderCard(
                   order: order,
                   produce: produce,
-                  trailing: order.status == 'confirmed'
+                  trailing: order.status == 'confirmed' && !isPaid
                       ? ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(context).colorScheme.secondary,

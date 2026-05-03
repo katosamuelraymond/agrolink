@@ -41,6 +41,10 @@ class OrderService {
     return _orderBox.values.where((o) => o.farmerId == farmerId).toList();
   }
 
+  List<OrderModel> getAllConfirmedOrders() {
+    return _orderBox.values.where((o) => o.status == 'confirmed').toList();
+  }
+
   OrderModel? getOrderById(String id) {
     return _orderBox.get(id);
   }

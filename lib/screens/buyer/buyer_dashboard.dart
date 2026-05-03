@@ -73,7 +73,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           )
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -111,24 +111,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               Icons.payment,
               Colors.redAccent,
             ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pushNamed(context, AppRoutes.browseProduce).then((_) => _loadStats());
-              },
-              icon: const Icon(Icons.search),
-              label: const Text('Browse Market'),
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pushNamed(context, AppRoutes.myOrders).then((_) => _loadStats());
-              },
-              icon: const Icon(Icons.list_alt),
-              label: const Text('My Orders'),
-              style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16)),
-            ),
+
           ],
         ),
       ),

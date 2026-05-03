@@ -23,7 +23,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Make Payment')),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -49,8 +49,46 @@ class _PaymentScreenState extends State<PaymentScreen> {
             const SizedBox(height: 16),
             _buildPaymentMethodTile('MTN MoMo', Icons.phone_android),
             _buildPaymentMethodTile('Airtel Money', Icons.phone_android),
+            _buildPaymentMethodTile('Bank Transfer', Icons.account_balance),
             _buildPaymentMethodTile('Cash', Icons.money),
-            const Spacer(),
+            const SizedBox(height: 24),
+            if (_selectedMethod == 'MTN MoMo' || _selectedMethod == 'Airtel Money')
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24.0),
+                child: TextField(
+                  decoration: InputDecoration(
+                    labelText: '${_selectedMethod} Number',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.phone),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+              )
+            else if (_selectedMethod == 'Bank Transfer')
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24.0),
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Bank Account Name',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Account Number',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.numbers),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 8),
             ElevatedButton(
               onPressed: _isProcessing
                   ? null

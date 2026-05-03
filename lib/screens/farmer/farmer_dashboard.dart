@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../services/session_service.dart';
-import '../../services/produce_service.dart';
-import '../../services/order_service.dart';
+import '../../models/produce_model.dart';
+import '../../models/order_model.dart';
 import '../../routes/app_routes.dart';
 
 class FarmerDashboard extends StatefulWidget {
@@ -13,40 +14,17 @@ class FarmerDashboard extends StatefulWidget {
 
 class _FarmerDashboardState extends State<FarmerDashboard> {
   final _sessionService = SessionService();
-  final _produceService = ProduceService();
-  final _orderService = OrderService();
-
-  int _totalProduce = 0;
-  int _pendingOrders = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadStats();
-  }
-
-  void _loadStats() {
-    final userId = _sessionService.currentUserId;
-    if (userId != null) {
-      final produce = _produceService.getProduceByFarmer(userId);
-      final orders = _orderService.getOrdersForFarmer(userId);
-
-      setState(() {
-        _totalProduce = produce.length;
-        _pendingOrders = orders.where((o) => o.status == 'pending').length;
-      });
-    }
-  }
 
   Future<void> _handleLogout() async {
     await _sessionService.logout();
     if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, AppRoutes.splash, (route) => false);
+    Navigator.pushReplacementNamed(context, AppRoutes.login);
   }
 
   @override
   Widget build(BuildContext context) {
     final user = _sessionService.currentUser;
+    final userId = user?.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -59,89 +37,60 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => _loadStats(),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Welcome, ${user?.fullName ?? "Farmer"}!',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 24),
-              
-              // Stats Overview
-              const Text(
-                'Overview',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      'My Produce',
-                      _totalProduce.toString(),
-                      Icons.inventory_2_outlined,
-                      Colors.green,
+      body: ValueListenableBuilder<Box<ProduceModel>>(
+        valueListenable: Hive.box<ProduceModel>('produce').listenable(),
+        builder: (context, produceBox, _) {
+          return ValueListenableBuilder<Box<OrderModel>>(
+            valueListenable: Hive.box<OrderModel>('orders').listenable(),
+            builder: (context, orderBox, _) {
+              final totalProduce = produceBox.values.where((p) => p.farmerId == userId).length;
+              final pendingOrders = orderBox.values.where((o) => o.farmerId == userId && o.status == 'pending').length;
+
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome, ${user?.fullName ?? "Farmer"}!',
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildStatCard(
-                      'Pending Orders',
-                      _pendingOrders.toString(),
-                      Icons.pending_actions_outlined,
-                      Colors.orange,
+                    const SizedBox(height: 24),
+                    
+                    // Stats Overview
+                    const Text(
+                      'Overview',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                     ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // Quick Actions
-              const Text(
-                'Quick Actions',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 16),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.2,
-                children: [
-                  _buildActionCard(
-                    'Add Produce',
-                    Icons.add_circle_outline,
-                    () => Navigator.pushNamed(context, AppRoutes.addProduce).then((_) => _loadStats()),
-                  ),
-                  _buildActionCard(
-                    'Manage Produce',
-                    Icons.edit_note,
-                    () => Navigator.pushNamed(context, AppRoutes.myProduce).then((_) => _loadStats()),
-                  ),
-                  _buildActionCard(
-                    'Order Requests',
-                    Icons.receipt_long,
-                    () => Navigator.pushNamed(context, AppRoutes.orderRequests).then((_) => _loadStats()),
-                  ),
-                  _buildActionCard(
-                    'Logistics Status',
-                    Icons.local_shipping_outlined,
-                    () => Navigator.pushNamed(context, AppRoutes.logisticsStatus),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            'My Produce',
+                            totalProduce.toString(),
+                            Icons.inventory_2_outlined,
+                            Colors.green,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildStatCard(
+                            'Pending Orders',
+                            pendingOrders.toString(),
+                            Icons.pending_actions_outlined,
+                            Colors.orange,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -177,32 +126,6 @@ class _FarmerDashboardState extends State<FarmerDashboard> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildActionCard(String title, IconData icon, VoidCallback onTap) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 40, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
