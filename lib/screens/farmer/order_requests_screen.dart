@@ -74,7 +74,7 @@ class _OrderRequestsScreenState extends State<OrderRequestsScreen> {
                   final produce = _produceService.getProduceById(order.produceId);
                   final buyer = _userService.getUserById(order.buyerId);
                   
-                  final subtitle = '${produce?.cropName ?? "Unknown Crop"} for ${buyer?.fullName ?? "Unknown Buyer"}';
+                  // Subtitle was removed as OrderCard now handles its own layout
 
                   List<Widget> actionButtons = [];
                   if (order.status == 'pending') {
@@ -98,8 +98,13 @@ class _OrderRequestsScreenState extends State<OrderRequestsScreen> {
 
                   return OrderCard(
                     order: order,
-                    subtitle: subtitle,
-                    actionButtons: actionButtons,
+                    produce: produce,
+                    trailing: actionButtons.isNotEmpty
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: actionButtons,
+                          )
+                        : null,
                   );
                 },
               ),

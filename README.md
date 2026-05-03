@@ -105,5 +105,5 @@ To run this project locally:
 
 ---
 <div align="center">
-  <p>Built with ❤️ for Makerere University Business School.</p>
+  <p>Built with ❤️ by Samuel Kato.</p>
 </div>
