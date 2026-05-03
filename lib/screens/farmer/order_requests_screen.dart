@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../services/session_service.dart';
 import '../../services/order_service.dart';
+import '../../services/produce_service.dart';
 import '../../models/order_model.dart';
 import '../../models/produce_model.dart';
 import '../../widgets/order_card.dart';
@@ -13,6 +14,7 @@ class OrderRequestsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final sessionService = SessionService();
     final orderService = OrderService();
+    final produceService = ProduceService();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Order Requests')),
@@ -82,6 +84,8 @@ class OrderRequestsScreen extends StatelessWidget {
                         ElevatedButton(
                           onPressed: () async {
                             await orderService.updateOrderStatus(order.id, 'confirmed');
+                            // Deduct ordered quantity from produce stock
+                            await produceService.deductQuantity(order.produceId, order.quantityOrdered);
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order confirmed! ✅')));
                             }

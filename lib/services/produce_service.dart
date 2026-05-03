@@ -89,4 +89,27 @@ class ProduceService {
       await _produceBox.put(id, updated);
     }
   }
+
+  /// Deducts [amount] from produce's quantity.
+  /// Automatically sets status to 'sold' if quantity reaches 0.
+  Future<void> deductQuantity(String id, double amount) async {
+    final produce = getProduceById(id);
+    if (produce == null) return;
+
+    final newQuantity = (produce.quantity - amount).clamp(0.0, double.infinity);
+    final newStatus = newQuantity <= 0 ? 'sold' : produce.status;
+
+    final updated = ProduceModel(
+      id: produce.id,
+      farmerId: produce.farmerId,
+      cropName: produce.cropName,
+      quantity: newQuantity,
+      unit: produce.unit,
+      pricePerUnit: produce.pricePerUnit,
+      description: produce.description,
+      status: newStatus,
+      createdAt: produce.createdAt,
+    );
+    await _produceBox.put(id, updated);
+  }
 }
