@@ -1,119 +1,105 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../services/session_service.dart';
-import '../../services/produce_service.dart';
-import '../../services/order_service.dart';
-import '../../services/payment_service.dart';
+import '../../models/produce_model.dart';
+import '../../models/order_model.dart';
+import '../../models/payment_model.dart';
 import '../../routes/app_routes.dart';
 
-class BuyerDashboard extends StatefulWidget {
+class BuyerDashboard extends StatelessWidget {
   const BuyerDashboard({super.key});
 
   @override
-  State<BuyerDashboard> createState() => _BuyerDashboardState();
-}
-
-class _BuyerDashboardState extends State<BuyerDashboard> {
-  final _sessionService = SessionService();
-  final _produceService = ProduceService();
-  final _orderService = OrderService();
-  final _paymentService = PaymentService();
-
-  int _availableProduceCount = 0;
-  int _activeOrdersCount = 0;
-  int _pendingPaymentsCount = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadStats();
-  }
-
-  void _loadStats() {
-    final user = _sessionService.currentUser;
-    if (user != null) {
-      final availableProduce = _produceService.getAllAvailableProduce();
-      final myOrders = _orderService.getOrdersForBuyer(user.id);
-      
-      final activeOrders = myOrders.where((o) => o.status != 'delivered' && o.status != 'cancelled').length;
-      
-      int pendingPayments = 0;
-      for (var order in myOrders) {
-        if (order.status == 'confirmed') {
-          final payments = _paymentService.getPaymentsForOrder(order.id);
-          if (payments.isEmpty || payments.every((p) => p.status != 'completed')) {
-            pendingPayments++;
-          }
-        }
-      }
-
-      setState(() {
-        _availableProduceCount = availableProduce.length;
-        _activeOrdersCount = activeOrders;
-        _pendingPaymentsCount = pendingPayments;
-      });
-    }
-  }
-
-  Future<void> _logout() async {
-    await _sessionService.logout();
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, AppRoutes.login);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final sessionService = SessionService();
+    final user = sessionService.currentUser;
+    final userId = user?.id;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Buyer Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: _logout,
-          )
+            onPressed: () async {
+              await sessionService.logout();
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, AppRoutes.login);
+              }
+            },
+          ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Welcome, Buyer!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryCard(
-                    'Available\nProduce',
-                    _availableProduceCount.toString(),
-                    Icons.shopping_basket,
-                    Colors.green,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildSummaryCard(
-                    'Active\nOrders',
-                    _activeOrdersCount.toString(),
-                    Icons.local_shipping,
-                    Colors.orange,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildSummaryCard(
-              'Pending Payments',
-              _pendingPaymentsCount.toString(),
-              Icons.payment,
-              Colors.redAccent,
-            ),
+      body: ValueListenableBuilder<Box<ProduceModel>>(
+        valueListenable: Hive.box<ProduceModel>('produce').listenable(),
+        builder: (context, produceBox, _) {
+          return ValueListenableBuilder<Box<OrderModel>>(
+            valueListenable: Hive.box<OrderModel>('orders').listenable(),
+            builder: (context, orderBox, _) {
+              return ValueListenableBuilder<Box<PaymentModel>>(
+                valueListenable: Hive.box<PaymentModel>('payments').listenable(),
+                builder: (context, paymentBox, _) {
+                  final availableProduceCount = produceBox.values.where((p) => p.status == 'available').length;
+                  final myOrders = orderBox.values.where((o) => o.buyerId == userId).toList();
+                  final activeOrdersCount = myOrders.where((o) => o.status != 'delivered' && o.status != 'cancelled').length;
+                  final pendingPaymentsCount = myOrders.where((o) {
+                    if (o.status != 'confirmed') return false;
+                    final paid = paymentBox.values.any((p) => p.orderId == o.id && p.status == 'completed');
+                    return !paid;
+                  }).length;
 
-          ],
-        ),
+                  return SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Welcome, ${user?.fullName ?? "Buyer"}!',
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Here is your activity overview',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildSummaryCard(
+                                'Available\nProduce',
+                                availableProduceCount.toString(),
+                                Icons.shopping_basket,
+                                Colors.green,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildSummaryCard(
+                                'Active\nOrders',
+                                activeOrdersCount.toString(),
+                                Icons.local_shipping,
+                                Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildSummaryCard(
+                          'Pending Payments',
+                          pendingPaymentsCount.toString(),
+                          Icons.payment,
+                          Colors.redAccent,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
       ),
     );
   }

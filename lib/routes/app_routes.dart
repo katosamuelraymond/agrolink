@@ -17,6 +17,7 @@ import '../screens/transporter/transporter_dashboard.dart';
 import '../screens/transporter/transporter_main.dart';
 import '../screens/transporter/available_pickups_screen.dart';
 import '../screens/transporter/my_deliveries_screen.dart';
+import '../screens/shared/profile_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -38,6 +39,8 @@ class AppRoutes {
   static const String availablePickups = '/available_pickups';
   static const String myDeliveries = '/my_deliveries';
 
+  static const String profile = '/profile';
+
   static Map<String, WidgetBuilder> get routes => {
         splash: (context) => const SplashScreen(),
         login: (context) => const LoginScreen(),
@@ -57,5 +60,6 @@ class AppRoutes {
         transporterDashboard: (context) => const TransporterMainScreen(),
         availablePickups: (context) => const AvailablePickupsScreen(),
         myDeliveries: (context) => const MyDeliveriesScreen(),
+        profile: (context) => const ProfileScreen(),
       };
 }

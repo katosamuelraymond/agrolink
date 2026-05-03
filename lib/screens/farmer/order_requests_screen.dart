@@ -1,138 +1,111 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../services/session_service.dart';
 import '../../services/order_service.dart';
-import '../../services/produce_service.dart';
-import '../../services/user_service.dart';
 import '../../models/order_model.dart';
+import '../../models/produce_model.dart';
 import '../../widgets/order_card.dart';
 
-class OrderRequestsScreen extends StatefulWidget {
+class OrderRequestsScreen extends StatelessWidget {
   const OrderRequestsScreen({super.key});
 
   @override
-  State<OrderRequestsScreen> createState() => _OrderRequestsScreenState();
-}
-
-class _OrderRequestsScreenState extends State<OrderRequestsScreen> {
-  final _orderService = OrderService();
-  final _produceService = ProduceService();
-  final _userService = UserService();
-  final _sessionService = SessionService();
-  
-  List<OrderModel> _orders = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadOrders();
-  }
-
-  void _loadOrders() {
-    final userId = _sessionService.currentUserId;
-    if (userId != null) {
-      setState(() {
-        _orders = _orderService.getOrdersForFarmer(userId)
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      });
-    }
-  }
-
-  Future<void> _updateStatus(OrderModel order, String newStatus) async {
-    try {
-      await _orderService.updateOrderStatus(order.id, newStatus);
-      if (newStatus == 'confirmed') {
-        // Also update produce status if necessary, e.g., to 'reserved' or 'sold' depending on logic
-        // For simplicity, we just leave it available until fully sold, or reserve it.
-      }
-      _loadOrders();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Order $newStatus!')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating order: $e')),
-      );
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Order Requests'),
-      ),
-      body: _orders.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-              onRefresh: () async => _loadOrders(),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16.0),
-                itemCount: _orders.length,
-                itemBuilder: (context, index) {
-                  final order = _orders[index];
-                  final produce = _produceService.getProduceById(order.produceId);
-                  final buyer = _userService.getUserById(order.buyerId);
-                  
-                  // Subtitle was removed as OrderCard now handles its own layout
+    final sessionService = SessionService();
+    final orderService = OrderService();
 
-                  List<Widget> actionButtons = [];
-                  if (order.status == 'pending') {
-                    actionButtons = [
-                      TextButton(
-                        onPressed: () => _updateStatus(order, 'cancelled'),
-                        style: TextButton.styleFrom(foregroundColor: Colors.red),
-                        child: const Text('Decline'),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: () => _updateStatus(order, 'confirmed'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
+    return Scaffold(
+      appBar: AppBar(title: const Text('Order Requests')),
+      body: ValueListenableBuilder<Box<OrderModel>>(
+        valueListenable: Hive.box<OrderModel>('orders').listenable(),
+        builder: (context, orderBox, _) {
+          return ValueListenableBuilder<Box<ProduceModel>>(
+            valueListenable: Hive.box<ProduceModel>('produce').listenable(),
+            builder: (context, produceBox, _) {
+              final userId = sessionService.currentUserId;
+              final orders = orderBox.values
+                  .where((o) => o.farmerId == userId)
+                  .toList()
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+              if (orders.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey.shade400),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No Orders Yet',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
                         ),
-                        child: const Text('Accept Order'),
-                      ),
-                    ];
+                        const SizedBox(height: 8),
+                        Text(
+                          'When buyers place orders for your produce, they will appear here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: orders.length,
+                itemBuilder: (context, index) {
+                  final order = orders[index];
+                  final produce = produceBox.values.firstWhere(
+                    (p) => p.id == order.produceId,
+                    orElse: () => ProduceModel(id: '', farmerId: '', cropName: 'Unknown', quantity: 0, unit: '', pricePerUnit: 0, description: '', status: 'unavailable', createdAt: DateTime.now()),
+                  );
+
+                  Widget? trailing;
+                  if (order.status == 'pending') {
+                    trailing = Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          onPressed: () async {
+                            await orderService.updateOrderStatus(order.id, 'cancelled');
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order declined.')));
+                            }
+                          },
+                          style: TextButton.styleFrom(foregroundColor: Colors.red),
+                          child: const Text('Decline'),
+                        ),
+                        const SizedBox(width: 4),
+                        ElevatedButton(
+                          onPressed: () async {
+                            await orderService.updateOrderStatus(order.id, 'confirmed');
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order confirmed! ✅')));
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Accept'),
+                        ),
+                      ],
+                    );
                   }
 
                   return OrderCard(
                     order: order,
                     produce: produce,
-                    trailing: actionButtons.isNotEmpty
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: actionButtons,
-                          )
-                        : null,
+                    trailing: trailing,
                   );
                 },
-              ),
-            ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'No Orders Yet',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'When buyers place orders for your produce, they will appear here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade500),
-            ),
-          ],
-        ),
+              );
+            },
+          );
+        },
       ),
     );
   }

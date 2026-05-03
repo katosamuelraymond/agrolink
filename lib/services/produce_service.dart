@@ -60,4 +60,33 @@ class ProduceService {
       await _produceBox.put(id, updated);
     }
   }
+
+  Future<void> deleteProduce(String id) async {
+    await _produceBox.delete(id);
+  }
+
+  Future<void> updateProduce({
+    required String id,
+    required String cropName,
+    required double quantity,
+    required String unit,
+    required double pricePerUnit,
+    required String description,
+  }) async {
+    final produce = getProduceById(id);
+    if (produce != null) {
+      final updated = ProduceModel(
+        id: produce.id,
+        farmerId: produce.farmerId,
+        cropName: cropName,
+        quantity: quantity,
+        unit: unit,
+        pricePerUnit: pricePerUnit,
+        description: description,
+        status: produce.status,
+        createdAt: produce.createdAt,
+      );
+      await _produceBox.put(id, updated);
+    }
+  }
 }

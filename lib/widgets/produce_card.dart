@@ -5,11 +5,15 @@ import 'package:intl/intl.dart';
 class ProduceCard extends StatelessWidget {
   final ProduceModel produce;
   final VoidCallback? onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const ProduceCard({
     super.key,
     required this.produce,
     this.onTap,
+    this.onEdit,
+    this.onDelete,
   });
 
   Color _getStatusColor() {
@@ -92,6 +96,26 @@ class ProduceCard extends StatelessWidget {
                   ),
                 ],
               ),
+              if (onEdit != null || onDelete != null) ...[
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (onEdit != null)
+                      TextButton.icon(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: const Text('Edit'),
+                      ),
+                    if (onDelete != null)
+                      TextButton.icon(
+                        onPressed: onDelete,
+                        icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        label: const Text('Delete', style: TextStyle(color: Colors.red)),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

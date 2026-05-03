@@ -1,80 +1,100 @@
 import 'package:flutter/material.dart';
-import '../../services/order_service.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../services/session_service.dart';
-import '../../services/produce_service.dart';
-import '../../models/order_model.dart';
-import '../../widgets/order_card.dart';
-import '../../routes/app_routes.dart';
 import '../../services/payment_service.dart';
+import '../../models/order_model.dart';
+import '../../models/produce_model.dart';
+import '../../models/payment_model.dart';
+import '../../routes/app_routes.dart';
+import '../../widgets/order_card.dart';
 
-class MyOrdersScreen extends StatefulWidget {
+class MyOrdersScreen extends StatelessWidget {
   const MyOrdersScreen({super.key});
 
   @override
-  State<MyOrdersScreen> createState() => _MyOrdersScreenState();
-}
-
-class _MyOrdersScreenState extends State<MyOrdersScreen> {
-  final _orderService = OrderService();
-  final _sessionService = SessionService();
-  final _produceService = ProduceService();
-  final _paymentService = PaymentService();
-
-  List<OrderModel> _myOrders = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadOrders();
-  }
-
-  void _loadOrders() {
-    final user = _sessionService.currentUser;
-    if (user != null) {
-      setState(() {
-        _myOrders = _orderService.getOrdersForBuyer(user.id);
-        // Sort by newest first
-        _myOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final sessionService = SessionService();
+    final paymentService = PaymentService();
+
     return Scaffold(
       appBar: AppBar(title: const Text('My Orders')),
-      body: _myOrders.isEmpty
-          ? const Center(child: Text('You have not placed any orders yet.'))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _myOrders.length,
-              itemBuilder: (context, index) {
-                final order = _myOrders[index];
-                final produce = _produceService.getProduceById(order.produceId);
-                final payments = _paymentService.getPaymentsForOrder(order.id);
-                final isPaid = payments.any((p) => p.status == 'completed');
-                
-                return OrderCard(
-                  order: order,
-                  produce: produce,
-                  trailing: order.status == 'confirmed' && !isPaid
-                      ? ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.secondary,
-                          ),
-                          onPressed: () {
-                            Navigator.pushNamed(
-                              context,
-                              AppRoutes.payment,
-                              arguments: order,
-                            ).then((_) => _loadOrders());
-                          },
-                          child: const Text('Pay Now', style: TextStyle(color: Colors.white)),
-                        )
-                      : null,
-                );
-              },
-            ),
+      body: ValueListenableBuilder<Box<OrderModel>>(
+        valueListenable: Hive.box<OrderModel>('orders').listenable(),
+        builder: (context, orderBox, _) {
+          return ValueListenableBuilder<Box<PaymentModel>>(
+            valueListenable: Hive.box<PaymentModel>('payments').listenable(),
+            builder: (context, paymentBox, _) {
+              return ValueListenableBuilder<Box<ProduceModel>>(
+                valueListenable: Hive.box<ProduceModel>('produce').listenable(),
+                builder: (context, produceBox, _) {
+                  final userId = sessionService.currentUser?.id;
+                  final myOrders = orderBox.values
+                      .where((o) => o.buyerId == userId)
+                      .toList()
+                    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+                  if (myOrders.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.list_alt_outlined, size: 80, color: Colors.grey.shade400),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No Orders Yet',
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Go to the Market tab to browse and order fresh produce.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey.shade500),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: myOrders.length,
+                    itemBuilder: (context, index) {
+                      final order = myOrders[index];
+                      final produce = produceBox.values
+                          .firstWhere((p) => p.id == order.produceId, orElse: () => ProduceModel(id: '', farmerId: '', cropName: 'Unknown', quantity: 0, unit: '', pricePerUnit: 0, description: '', status: 'unavailable', createdAt: DateTime.now()));
+                      final isPaid = paymentBox.values
+                          .any((p) => p.orderId == order.id && p.status == 'completed');
+
+                      return OrderCard(
+                        order: order,
+                        produce: produce,
+                        trailing: order.status == 'confirmed' && !isPaid
+                            ? ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                                ),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.payment,
+                                    arguments: order,
+                                  );
+                                },
+                                child: const Text('Pay Now', style: TextStyle(color: Colors.white)),
+                              )
+                            : null,
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
