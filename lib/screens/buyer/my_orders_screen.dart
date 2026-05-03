@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../services/session_service.dart';
-import '../../services/payment_service.dart';
 import '../../models/order_model.dart';
 import '../../models/produce_model.dart';
 import '../../models/payment_model.dart';
@@ -14,7 +13,6 @@ class MyOrdersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sessionService = SessionService();
-    final paymentService = PaymentService();
 
     return Scaffold(
       appBar: AppBar(title: const Text('My Orders')),

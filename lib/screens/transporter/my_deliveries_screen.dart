@@ -32,7 +32,7 @@ class MyDeliveriesScreen extends StatelessWidget {
                   final myDeliveries = logisticsBox.values
                       .where((d) => d.transporterId == userId)
                       .toList()
-                    ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+                    ..sort((a, b) => (b.pickupTime ?? DateTime(0)).compareTo(a.pickupTime ?? DateTime(0)));
 
                   if (myDeliveries.isEmpty) {
                     return Center(
@@ -65,7 +65,7 @@ class MyDeliveriesScreen extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final logistics = myDeliveries[index];
                       final order = orderBox.values
-                          .firstWhere((o) => o.id == logistics.orderId, orElse: () => OrderModel(id: '', buyerId: '', farmerId: '', produceId: '', quantity: 0, totalPrice: 0, status: 'unknown', createdAt: DateTime.now(), updatedAt: DateTime.now()));
+                          .firstWhere((o) => o.id == logistics.orderId, orElse: () => OrderModel(id: '', buyerId: '', farmerId: '', produceId: '', quantityOrdered: 0, totalPrice: 0, status: 'unknown', pickupLocation: '', deliveryLocation: '', createdAt: DateTime.now()));
                       final produce = produceBox.values
                           .firstWhere((p) => p.id == order.produceId, orElse: () => ProduceModel(id: '', farmerId: '', cropName: 'Unknown', quantity: 0, unit: '', pricePerUnit: 0, description: '', status: 'unavailable', createdAt: DateTime.now()));
 
