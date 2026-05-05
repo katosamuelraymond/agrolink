@@ -36,6 +36,10 @@ class LogisticsService {
     }
   }
 
+  List<LogisticsModel> getDeliveriesForOrder(String orderId) {
+  return _logisticsBox.values.where((l) => l.orderId == orderId).toList();
+}
+
   LogisticsModel? getLogisticsById(String id) {
     return _logisticsBox.get(id);
   }
